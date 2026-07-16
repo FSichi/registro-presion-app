@@ -1,0 +1,1242 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0a0e13">
+<title>Registro de presión</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230a0e13'/%3E%3Cpath d='M5 17h6l3-8 5 14 3-6h5' fill='none' stroke='%23ff7f66' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#0a0e13;
+    --card:#121820;
+    --card-2:#161d27;
+    --ink:#edf1f5;
+    --ink-2:#a8b3bf;
+    --muted:#67737f;
+    --grid:#222b35;
+    --baseline:#3a444f;
+    --line:rgba(255,255,255,.07);
+    --line-2:rgba(255,255,255,.13);
+    --sys:#ff7f66;         /* sistólica · coral */
+    --dia:#2fd0ae;         /* diastólica · menta */
+    --pulse:#9db1ff;
+    --amber:#fab219;
+    --danger:#ff5c5c;
+    --ok:#18b26b;
+    --focus:#ffb39f;
+    --r:18px;
+    --display:Bahnschrift, "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+    --sans:"Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    font-family:var(--sans);
+    background:var(--bg);
+    color:var(--ink);
+    line-height:1.5;
+    padding:
+      calc(16px + env(safe-area-inset-top))
+      calc(16px + env(safe-area-inset-right))
+      calc(46px + env(safe-area-inset-bottom))
+      calc(16px + env(safe-area-inset-left));
+    min-height:100vh;
+  }
+
+  /* atmósfera de fondo */
+  .bgfx{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;background:var(--bg)}
+  .bgfx::before{
+    content:"";position:absolute;inset:-20%;
+    background:
+      radial-gradient(46% 34% at 12% -4%, rgba(47,208,174,.13), transparent 62%),
+      radial-gradient(50% 38% at 96% 6%,  rgba(255,127,102,.11), transparent 64%),
+      radial-gradient(52% 44% at 50% 112%, rgba(96,116,255,.09), transparent 66%);
+  }
+  .bgfx::after{
+    content:"";position:absolute;inset:0;opacity:.05;
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .wrap{max-width:1100px;margin:0 auto}
+
+  /* ============ header ============ */
+  header.top{
+    display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;
+    gap:12px;margin-bottom:20px;
+  }
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand .mark{
+    width:42px;height:42px;border-radius:13px;flex:none;
+    background:linear-gradient(140deg,#1a222d,#10151c);
+    border:1px solid var(--line-2);
+    display:grid;place-items:center;
+    box-shadow:0 6px 18px rgba(0,0,0,.35);
+  }
+  .brand h1{
+    font-family:var(--display);font-weight:600;font-size:clamp(19px,2.6vw,23px);
+    letter-spacing:.01em;line-height:1.15;
+  }
+  .brand .sub{color:var(--muted);font-size:12.5px;text-transform:capitalize}
+  .actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .pill{
+    display:inline-flex;align-items:center;gap:7px;
+    font:inherit;font-size:13px;font-weight:500;color:var(--ink-2);
+    background:rgba(255,255,255,.04);
+    border:1px solid var(--line);border-radius:999px;
+    padding:8px 14px;cursor:pointer;
+    transition:color .15s,border-color .15s,background .15s,transform .1s;
+  }
+  .pill:hover{color:var(--ink);border-color:var(--line-2);background:rgba(255,255,255,.07)}
+  .pill:active{transform:scale(.97)}
+  .pill svg{flex:none;opacity:.75}
+  .pill.hot{
+    color:#1a0d08;background:linear-gradient(135deg,#ffb199,#ff7f66);
+    border-color:transparent;font-weight:600;
+  }
+  .pill.hot svg{opacity:.9}
+  .pill.hot:hover{filter:brightness(1.06);color:#1a0d08}
+  .nudge{
+    font-size:12px;font-weight:600;color:var(--amber);
+    background:rgba(250,178,25,.1);border:1px solid rgba(250,178,25,.35);
+    border-radius:999px;padding:7px 12px;cursor:pointer;font-family:inherit;
+  }
+
+  /* ============ banner crisis ============ */
+  .banner{
+    display:none;gap:12px;align-items:flex-start;
+    background:rgba(255,92,92,.09);
+    border:1px solid rgba(255,92,92,.35);
+    border-radius:var(--r);padding:14px 16px;margin-bottom:16px;font-size:13.5px;
+    color:var(--ink-2);
+  }
+  .banner.show{display:flex}
+  .banner strong{color:var(--ink)}
+  .banner .pill{flex:none;margin-left:auto}
+
+  /* ============ layout ============ */
+  .layout{display:grid;grid-template-columns:1fr;gap:16px}
+  .rail,.main{display:flex;flex-direction:column;gap:16px;min-width:0}
+  @media (min-width:920px){
+    .layout{grid-template-columns:370px 1fr;gap:20px;align-items:start}
+    .rail{position:sticky;top:20px}
+  }
+
+  .card{
+    background:linear-gradient(180deg,rgba(255,255,255,.028),rgba(255,255,255,0) 42%),var(--card);
+    border:1px solid var(--line);border-radius:var(--r);
+    padding:20px;box-shadow:0 10px 30px rgba(0,0,0,.25);
+  }
+  @media (prefers-reduced-motion:no-preference){
+    .rise{animation:rise .5s cubic-bezier(.2,.7,.25,1) both}
+    .rise.d1{animation-delay:.05s}.rise.d2{animation-delay:.1s}.rise.d3{animation-delay:.15s}
+    @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  }
+
+  .kicker{
+    font-family:var(--display);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--muted);font-weight:600;
+  }
+  h2{font-family:var(--display);font-weight:600;font-size:17px;letter-spacing:.01em}
+
+  /* ============ hero ============ */
+  .hero .when{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .hero .big{
+    font-family:var(--display);font-weight:700;letter-spacing:-.02em;
+    font-size:clamp(46px,11vw,58px);line-height:1;margin:10px 0 4px;
+    display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;
+    font-variant-numeric:tabular-nums;
+  }
+  .hero .big .s{color:var(--sys)}
+  .hero .big .slash{color:var(--baseline);font-weight:300;font-size:.75em}
+  .hero .big .d{color:var(--dia)}
+  .hero .big .p{font-size:17px;color:var(--ink-2);font-weight:500;letter-spacing:0}
+  .hero .big .p b{color:var(--pulse);font-weight:600}
+  .hero .meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px}
+  .hero .ctxline{color:var(--muted);font-size:13px;font-style:italic}
+  .hero .units{color:var(--muted);font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+  .hero.emptyhero .big{font-size:clamp(26px,6vw,32px);color:var(--ink-2);font-weight:600}
+
+  /* ============ categorías ============ */
+  .cat{
+    display:inline-flex;align-items:center;gap:6px;
+    font-size:11.5px;font-weight:600;color:var(--ink);
+    background:color-mix(in srgb,var(--c) 15%,transparent);
+    border:1px solid color-mix(in srgb,var(--c) 42%,transparent);
+    border-radius:999px;padding:3px 10px;white-space:nowrap;
+  }
+  .cat::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--c);flex:none;
+    box-shadow:0 0 8px color-mix(in srgb,var(--c) 70%,transparent)}
+
+  /* ============ formulario ============ */
+  .entry.editing{border-color:rgba(255,127,102,.5)}
+  form{display:flex;flex-direction:column;gap:15px;margin-top:14px}
+  .lbl{
+    font-family:var(--display);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--muted);font-weight:600;
+  }
+  label.f{display:flex;flex-direction:column;gap:6px}
+  input[type="datetime-local"],input[type="text"]{
+    font:inherit;font-size:14px;color:var(--ink);
+    background:rgba(255,255,255,.035);
+    border:1px solid var(--line);border-radius:12px;padding:10px 12px;
+    transition:border-color .15s,background .15s;
+  }
+  input[type="datetime-local"]{color-scheme:dark}
+  input:hover{border-color:var(--line-2)}
+  .dtrow{display:flex;gap:8px}
+  .dtrow input{flex:1;min-width:0}
+  .mini{
+    font:inherit;font-size:12.5px;color:var(--ink-2);
+    background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:12px;
+    padding:0 13px;cursor:pointer;
+  }
+  .mini:hover{color:var(--ink);border-color:var(--line-2)}
+  .vitals{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+  .vital{
+    display:flex;flex-direction:column;gap:6px;align-items:stretch;
+    background:rgba(255,255,255,.028);
+    border:1px solid var(--line);border-radius:14px;padding:11px 8px 9px;
+    transition:border-color .15s;
+  }
+  .vital:focus-within{border-color:color-mix(in srgb,var(--vc,#fff) 55%,transparent)}
+  .vital .lbl{text-align:center;color:color-mix(in srgb,var(--vc,var(--muted)) 80%,var(--ink-2))}
+  .vital input{
+    font-family:var(--display);font-variant-numeric:tabular-nums;
+    font-size:27px;font-weight:700;text-align:center;color:var(--ink);
+    background:none;border:none;width:100%;padding:2px 0;
+  }
+  .vital input:focus{outline:none}
+  .vital input::-webkit-outer-spin-button,.vital input::-webkit-inner-spin-button{-webkit-appearance:none}
+  .vital input[type=number]{-moz-appearance:textfield;appearance:textfield}
+  .vital .u{font-size:10px;color:var(--muted);text-align:center;letter-spacing:.08em}
+  .vital.bad{border-color:var(--danger)}
+  input:focus-visible,button:focus-visible,.chip:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .chip{
+    font:inherit;font-size:12px;color:var(--ink-2);
+    background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:999px;
+    padding:5px 12px;cursor:pointer;
+    transition:background .15s,color .15s,border-color .15s,transform .1s;
+  }
+  .chip:hover{background:rgba(255,255,255,.08);color:var(--ink);border-color:var(--line-2)}
+  .chip:active{transform:scale(.95)}
+  .save{
+    font-family:var(--display);font-size:15.5px;font-weight:700;letter-spacing:.02em;
+    color:#1a0d08;
+    background:linear-gradient(135deg,#ffb199,#ff7f66 55%,#ff6a7c);
+    border:none;border-radius:14px;padding:14px;cursor:pointer;
+    box-shadow:0 8px 24px rgba(255,127,102,.25);
+    transition:transform .1s,filter .15s;
+  }
+  .save:hover{filter:brightness(1.06)}
+  .save:active{transform:scale(.98)}
+  .formfoot{display:flex;align-items:center;gap:12px;min-height:20px}
+  .linkbtn{
+    font:inherit;font-size:13px;color:var(--sys);background:none;border:none;
+    cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:0;
+  }
+  #msg{font-size:13px;color:var(--ok)}
+  #msg.err{color:var(--danger)}
+
+  /* ============ stats ============ */
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media (max-width:640px){.stats{grid-template-columns:repeat(2,1fr)}.stats .tile:last-child{grid-column:1/-1}}
+  .tile{
+    background:linear-gradient(180deg,rgba(255,255,255,.025),rgba(255,255,255,0) 45%),var(--card);
+    border:1px solid var(--line);border-radius:16px;padding:14px 16px;min-width:0;
+  }
+  .tile .v{
+    font-family:var(--display);font-size:clamp(23px,3vw,28px);font-weight:700;
+    letter-spacing:-.01em;margin-top:4px;white-space:nowrap;font-variant-numeric:tabular-nums;
+  }
+  .tile .v small{font-size:57%;color:var(--muted);font-weight:400}
+  .tile .foot{font-size:12px;color:var(--muted);margin-top:3px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .trend{font-weight:600}
+  .trend.down{color:var(--ok)}
+  .trend.up{color:var(--danger)}
+
+  /* ============ gráfico ============ */
+  .chartHead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .range{display:flex;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:999px;padding:3px}
+  .range button{
+    font:inherit;font-size:12px;font-weight:500;color:var(--ink-2);
+    background:transparent;border:none;border-radius:999px;padding:5px 12px;cursor:pointer;
+    transition:background .15s,color .15s;
+  }
+  .range button.on{background:var(--ink);color:var(--bg);font-weight:600}
+  .chartWrap{position:relative;margin-top:12px}
+  #chart{display:block;width:100%}
+  #tooltip{
+    position:absolute;pointer-events:none;display:none;z-index:3;
+    background:#1a212b;border:1px solid var(--line-2);border-radius:12px;
+    box-shadow:0 10px 30px rgba(0,0,0,.5);padding:10px 12px;font-size:12.5px;min-width:155px;
+  }
+  #tooltip .t{color:var(--muted);font-size:11.5px;margin-bottom:5px}
+  #tooltip .row{display:flex;align-items:center;gap:7px;font-variant-numeric:tabular-nums;color:var(--ink-2)}
+  #tooltip .row b{margin-left:auto;color:var(--ink)}
+  #tooltip .dot{width:8px;height:8px;border-radius:50%;flex:none}
+  #tooltip .cx{color:var(--muted);font-size:11.5px;margin-top:5px;max-width:210px;font-style:italic}
+  .chartFoot{
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    margin-top:10px;font-size:12px;color:var(--ink-2);
+  }
+  .lg{display:inline-flex;align-items:center;gap:6px}
+  .lg i{width:8px;height:8px;border-radius:50%;display:inline-block}
+  .chartFoot .note{color:var(--muted);margin-left:auto}
+  .empty{color:var(--muted);font-size:13.5px;padding:30px 10px;text-align:center}
+
+  /* ============ historial ============ */
+  .logHead{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+  .logHead .n{font-size:12px;color:var(--muted)}
+  .day{
+    font-family:var(--display);font-size:11px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--muted);margin:18px 0 6px;padding-bottom:6px;border-bottom:1px solid var(--grid);
+    display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+  }
+  .day .avg{letter-spacing:0;text-transform:none;font-family:var(--sans);font-weight:400;font-size:11.5px}
+  .row{
+    display:grid;grid-template-columns:46px 110px max-content 1fr max-content;gap:12px;align-items:center;
+    padding:10px 6px;border-radius:12px;
+  }
+  .row + .row{border-top:1px solid rgba(255,255,255,.04)}
+  .row:hover{background:rgba(255,255,255,.025)}
+  .row .hh{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+  .row .val{
+    font-family:var(--display);font-size:19px;font-weight:700;letter-spacing:-.01em;
+    white-space:nowrap;font-variant-numeric:tabular-nums;
+  }
+  .row .val .sl{color:var(--baseline);font-weight:300}
+  .row .val small{font-family:var(--sans);font-size:11px;color:var(--muted);font-weight:400;margin-left:7px}
+  .row .ctx{color:var(--ink-2);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  .row .ops{display:flex;gap:2px}
+  @media (hover:hover){
+    .row .ops{opacity:0;transition:opacity .15s}
+    .row:hover .ops,.row:focus-within .ops{opacity:1}
+  }
+  .iconb{
+    font-size:13px;line-height:1;color:var(--muted);background:none;border:none;cursor:pointer;
+    padding:7px 8px;border-radius:9px;
+  }
+  .iconb:hover{color:var(--ink);background:rgba(255,255,255,.06)}
+  .iconb.del:hover{color:var(--danger)}
+  .row.flash{animation:flash 1.4s ease-out}
+  @keyframes flash{0%{background:rgba(255,127,102,.14)}100%{background:transparent}}
+  .confirm{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ink-2);grid-column:1/-1;flex-wrap:wrap}
+  .confirm .yes{
+    color:#fff;background:var(--danger);border:none;border-radius:9px;
+    padding:6px 13px;font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;
+  }
+  .showall{margin-top:12px;width:100%;justify-content:center}
+  @media (max-width:640px){
+    .row{grid-template-columns:42px 1fr max-content;grid-template-areas:"hh val ops" ". cat cat" ". ctx ctx";row-gap:3px}
+    .row .hh{grid-area:hh}.row .val{grid-area:val}.row .catc{grid-area:cat}
+    .row .ctx{grid-area:ctx;white-space:normal}.row .ops{grid-area:ops}
+  }
+
+  /* ============ footer ============ */
+  footer{margin-top:30px;color:var(--muted)}
+  .guide{display:flex;flex-wrap:wrap;gap:7px;margin:10px 0 16px}
+  .guide .cat{font-weight:400;color:var(--ink-2)}
+  .guide .cat b{font-weight:600;color:var(--ink);margin-right:2px}
+  .settings{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    font-size:12.5px;margin-bottom:14px;
+  }
+  .settings input{max-width:230px;font-size:13px;padding:7px 11px}
+  .disclaimer{font-size:12px;max-width:75ch;line-height:1.6}
+  .disclaimer strong{color:var(--ink-2)}
+
+  /* ================================================== */
+  /* ============ INFORME (solo impresión) ============ */
+  /* ================================================== */
+  #report{display:none}
+  @media print{
+    @page{size:A4;margin:15mm 13mm}
+    body{background:#fff !important;color:#16181c;padding:0;font-family:var(--sans)}
+    .bgfx,.app{display:none !important}
+    #report{display:block}
+    #report{color:#16181c;font-size:11.5px;line-height:1.45}
+    #report .rhead{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;
+      border-bottom:2.5px solid #16181c;padding-bottom:10px}
+    #report h1{font-family:Cambria,Georgia,serif;font-size:24px;font-weight:700;letter-spacing:-.01em}
+    #report .rsub{color:#5a626d;font-size:11px;margin-top:3px}
+    #report .rmeta{text-align:right;font-size:11px;color:#5a626d;line-height:1.5}
+    #report .rmeta b{color:#16181c}
+    #report h2{font-family:Cambria,Georgia,serif;font-size:14.5px;font-weight:700;margin:18px 0 8px;
+      padding-bottom:4px;border-bottom:1px solid #d8d8d3;letter-spacing:0}
+    #report .rsummary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+    #report .rcell{border:1px solid #ddddd6;border-radius:8px;padding:8px 10px}
+    #report .rcell .k{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:#7a828c;font-weight:600}
+    #report .rcell .n{font-family:Cambria,Georgia,serif;font-size:19px;font-weight:700;margin-top:2px}
+    #report .rcell .n small{font-size:60%;color:#7a828c;font-weight:400}
+    #report .rcell .f{font-size:10px;color:#5a626d;margin-top:1px}
+    #report .rline{display:flex;gap:18px;flex-wrap:wrap;font-size:11px;color:#33383f;margin-top:8px}
+    #report .rline b{font-variant-numeric:tabular-nums}
+    #report .dist{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+    #report .dist span{border:1px solid #ddddd6;border-radius:999px;padding:2px 9px;font-size:10px;color:#33383f}
+    #report .dist i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px}
+    #report table{width:100%;border-collapse:collapse;margin-top:6px;font-size:10.5px}
+    #report thead{display:table-header-group}
+    #report th{
+      text-align:left;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#7a828c;
+      border-bottom:1.5px solid #16181c;padding:5px 7px;font-weight:600;
+    }
+    #report td{border-bottom:1px solid #e5e5df;padding:4.5px 7px;vertical-align:top}
+    #report tr{page-break-inside:avoid}
+    #report tbody tr:nth-child(even){background:#f6f6f2}
+    #report td.num{font-variant-numeric:tabular-nums;font-weight:600}
+    #report .rcat{white-space:nowrap}
+    #report .rcat i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px}
+    #report .rfoot{margin-top:14px;padding-top:8px;border-top:1px solid #d8d8d3;
+      font-size:9.5px;color:#7a828c;line-height:1.5}
+    #report .chartbox{margin-top:4px}
+    #report .newpage{page-break-before:always}
+  }
+</style>
+</head>
+<body>
+<div class="bgfx" aria-hidden="true"></div>
+
+<div class="app wrap">
+
+  <header class="top">
+    <div class="brand">
+      <span class="mark" aria-hidden="true">
+        <svg width="24" height="24" viewBox="0 0 32 32">
+          <path d="M4 17h6l3-8 5 14 3-6h7" fill="none" stroke="var(--sys)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <div>
+        <h1>Registro de presión</h1>
+        <div class="sub" id="today"></div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="nudge" id="nudge" hidden title="Tomas nuevas sin respaldar">⚠ backup pendiente</button>
+      <button class="pill hot" id="btnPdf" title="Informe para llevar al médico (se guarda como PDF)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 15h6M9 11h2"/></svg>
+        Informe PDF
+      </button>
+      <button class="pill" id="btnJson" title="Copia de seguridad de tus datos (JSON)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+        Backup
+      </button>
+      <button class="pill" id="btnImport" title="Restaurar un backup JSON">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
+        Importar
+      </button>
+      <input type="file" id="fileImport" accept=".json,application/json" hidden>
+    </div>
+  </header>
+
+  <div class="banner" id="banner" role="alert">
+    <div>
+      <strong>Ese valor es muy alto.</strong>
+      Quedate en reposo cinco minutos y volvé a tomarte la presión. Si el valor se repite
+      (≥180 de sistólica o ≥110 de diastólica), contactá a tu médico o a un servicio de urgencias.
+    </div>
+    <button class="pill" id="bannerClose">Entendido</button>
+  </div>
+
+  <div class="layout">
+
+    <!-- ===== rail: última toma + carga ===== -->
+    <div class="rail">
+      <section class="card rise hero" id="hero"></section>
+
+      <section class="card rise d1 entry" id="entryCard">
+        <div class="kicker" id="entryKicker">Nueva toma</div>
+        <form id="f" novalidate>
+          <div class="vitals">
+            <div class="vital" style="--vc:var(--sys)">
+              <span class="lbl">Sistólica</span>
+              <input type="number" id="sys" inputmode="numeric" pattern="[0-9]*" min="50" max="260" placeholder="120" required autocomplete="off">
+              <span class="u">mmHg</span>
+            </div>
+            <div class="vital" style="--vc:var(--dia)">
+              <span class="lbl">Diastólica</span>
+              <input type="number" id="dia" inputmode="numeric" pattern="[0-9]*" min="30" max="200" placeholder="80" required autocomplete="off">
+              <span class="u">mmHg</span>
+            </div>
+            <div class="vital" style="--vc:var(--pulse)">
+              <span class="lbl">Pulso</span>
+              <input type="number" id="pulse" inputmode="numeric" pattern="[0-9]*" min="25" max="220" placeholder="70" autocomplete="off">
+              <span class="u">lpm · opcional</span>
+            </div>
+          </div>
+
+          <label class="f">
+            <span class="lbl">Fecha y hora</span>
+            <span class="dtrow">
+              <input type="datetime-local" id="dt" required>
+              <button type="button" class="mini" id="btnNow" title="Volver a la hora actual">ahora</button>
+            </span>
+          </label>
+
+          <label class="f">
+            <span class="lbl">Contexto · ¿qué estabas haciendo?</span>
+            <input type="text" id="ctx" placeholder="p. ej. recién levantado, tranquilo" autocomplete="off">
+            <span class="chips" id="chips"></span>
+          </label>
+
+          <button type="submit" class="save" id="btnSave">Guardar toma</button>
+          <div class="formfoot">
+            <button type="button" class="linkbtn" id="btnCancelEdit" hidden>Cancelar edición</button>
+            <span id="msg" role="status" aria-live="polite"></span>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <!-- ===== main: stats + gráfico + historial ===== -->
+    <div class="main">
+      <div class="stats rise d1" id="stats"></div>
+
+      <section class="card rise d2">
+        <div class="chartHead">
+          <div>
+            <div class="kicker">Evolución</div>
+            <h2>Tu presión en el tiempo</h2>
+          </div>
+          <div class="range" id="range" role="group" aria-label="Rango del gráfico">
+            <button data-d="7">7 d</button>
+            <button data-d="30" class="on">30 d</button>
+            <button data-d="90">90 d</button>
+            <button data-d="0">Todo</button>
+          </div>
+        </div>
+        <div class="chartWrap" id="chartWrap">
+          <svg id="chart" role="img" aria-label="Gráfico de presión sistólica y diastólica en el tiempo"></svg>
+          <div id="tooltip"></div>
+        </div>
+        <div class="chartFoot">
+          <span class="lg"><i style="background:var(--sys)"></i> Sistólica</span>
+          <span class="lg"><i style="background:var(--dia)"></i> Diastólica</span>
+          <span class="note">Guías punteadas: 140 / 90 mmHg</span>
+        </div>
+      </section>
+
+      <section class="card rise d3">
+        <div class="logHead">
+          <div>
+            <div class="kicker">Historial</div>
+            <h2>Todas tus tomas</h2>
+          </div>
+          <span class="n" id="logCount"></span>
+        </div>
+        <div id="log"></div>
+        <button class="pill showall" id="btnShowAll" hidden></button>
+      </section>
+    </div>
+  </div>
+
+  <footer>
+    <div class="kicker">Clasificación de referencia (ESC/ESH)</div>
+    <div class="guide" id="guide"></div>
+    <div class="settings">
+      <label for="patientName">Nombre en el informe (opcional):</label>
+      <input type="text" id="patientName" placeholder="Tu nombre y apellido" autocomplete="name">
+    </div>
+    <p class="disclaimer">
+      La clasificación es <strong>orientativa</strong> y no reemplaza el diagnóstico ni las metas que te indique tu médico.
+      Los datos viven <strong>solo en este navegador</strong>: si borrás los datos de navegación se pierden —
+      hacé un <strong>Backup</strong> cada tanto y guardalo (se restaura con «Importar»).
+      El botón <strong>Informe PDF</strong> arma un informe clínico y abre el diálogo de impresión:
+      elegí «Guardar como PDF».
+    </p>
+  </footer>
+</div>
+
+<!-- ===== informe imprimible ===== -->
+<section id="report"></section>
+
+<script>
+"use strict";
+
+/* ================= estado ================= */
+const KEY  = "registroPresion.v1";
+const META = "registroPresion.meta";
+let records = load();
+let meta    = loadMeta();
+let editingId = null;
+let rangeDays = 30;
+let showAll   = false;
+
+function load(){
+  try{
+    const raw = localStorage.getItem(KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr.filter(r => r && r.dt && r.sys && r.dia) : [];
+  }catch(e){ return []; }
+}
+function persist(){ localStorage.setItem(KEY, JSON.stringify(records)); }
+function loadMeta(){
+  try{ return JSON.parse(localStorage.getItem(META)) || {}; }catch(e){ return {}; }
+}
+function persistMeta(){ localStorage.setItem(META, JSON.stringify(meta)); }
+function uid(){
+  return (crypto.randomUUID) ? crypto.randomUUID()
+       : Date.now().toString(36) + "-" + Math.random().toString(36).slice(2,10);
+}
+function sorted(){ return [...records].sort((a,b)=> a.dt < b.dt ? 1 : a.dt > b.dt ? -1 : 0); }
+
+/* ================= categorías ESC/ESH ================= */
+const CATS = [
+  { k:"g3", label:"HTA grado 3", c:"#ff5757", pc:"#c22323", test:(s,d)=> s>=180 || d>=110, range:"≥180 / ≥110" },
+  { k:"g2", label:"HTA grado 2", c:"#e34848", pc:"#d03b3b", test:(s,d)=> s>=160 || d>=100, range:"160–179 / 100–109" },
+  { k:"g1", label:"HTA grado 1", c:"#ec835a", pc:"#e06a3c", test:(s,d)=> s>=140 || d>=90,  range:"140–159 / 90–99" },
+  { k:"na", label:"Normal-alta", c:"#fab219", pc:"#c98500", test:(s,d)=> s>=130 || d>=85,  range:"130–139 / 85–89" },
+  { k:"no", label:"Normal",      c:"#86c232", pc:"#5d9a1b", test:(s,d)=> s>=120 || d>=80,  range:"120–129 / 80–84" },
+  { k:"op", label:"Óptima",      c:"#18b26b", pc:"#0c8a52", test:()=> true,                range:"<120 / <80" },
+];
+function catOf(sys, dia){ return CATS.find(c => c.test(sys, dia)); }
+function catChip(cat){ return `<span class="cat" style="--c:${cat.c}">${cat.label}</span>`; }
+
+/* ================= fechas / util ================= */
+const pad = n => String(n).padStart(2,"0");
+function nowLocalISO(){
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function dayKey(dt){ return dt.slice(0,10); }
+function fmtTime(dt){ return dt.slice(11,16); }
+function fmtDayLabel(key){
+  const today = nowLocalISO().slice(0,10);
+  const y = new Date(); y.setDate(y.getDate()-1);
+  const yest = `${y.getFullYear()}-${pad(y.getMonth()+1)}-${pad(y.getDate())}`;
+  if(key === today) return "Hoy";
+  if(key === yest)  return "Ayer";
+  return new Date(key+"T12:00").toLocaleDateString("es-AR",{weekday:"long", day:"numeric", month:"long"});
+}
+function fmtShort(dt){
+  return new Date(dt).toLocaleDateString("es-AR",{day:"numeric",month:"short"}) + " " + fmtTime(dt);
+}
+function fmtAgo(dt){
+  const mins = Math.round((Date.now() - new Date(dt).getTime()) / 6e4);
+  if(mins < 1) return "recién";
+  if(mins < 60) return `hace ${mins} min`;
+  const h = Math.round(mins/60);
+  if(h < 24) return `hace ${h} h`;
+  const d = Math.round(h/24);
+  return d === 1 ? "ayer" : `hace ${d} días`;
+}
+function esc(s){
+  return String(s ?? "").replace(/[&<>"']/g, m =>
+    ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+}
+const $ = id => document.getElementById(id);
+
+/* ================= formulario ================= */
+const CONTEXTS = ["En reposo","Recién levantado","Trabajando","Después de comer","Después de caminar","Estrés / discusión","Antes de dormir"];
+$("chips").innerHTML = CONTEXTS.map(c => `<button type="button" class="chip">${c}</button>`).join("");
+$("chips").addEventListener("click", e => {
+  const b = e.target.closest(".chip"); if(!b) return;
+  const inp = $("ctx"), t = b.textContent;
+  inp.value = inp.value.trim() ? inp.value.replace(/\s*$/,"") + ", " + t.toLowerCase() : t;
+});
+$("btnNow").addEventListener("click", ()=> { $("dt").value = nowLocalISO(); });
+
+function vitalBox(id){ return $(id).closest(".vital"); }
+function resetForm(){
+  editingId = null;
+  $("f").reset();
+  $("dt").value = nowLocalISO();
+  $("entryCard").classList.remove("editing");
+  $("entryKicker").textContent = "Nueva toma";
+  $("btnSave").textContent     = "Guardar toma";
+  $("btnCancelEdit").hidden    = true;
+  ["sys","dia","pulse"].forEach(id => vitalBox(id).classList.remove("bad"));
+}
+$("btnCancelEdit").addEventListener("click", ()=>{ resetForm(); say(""); });
+
+function say(text, isErr){
+  const m = $("msg");
+  m.textContent = text;
+  m.classList.toggle("err", !!isErr);
+  if(text && !isErr){ clearTimeout(say._t); say._t = setTimeout(()=>{ m.textContent=""; }, 3500); }
+}
+
+$("f").addEventListener("submit", e => {
+  e.preventDefault();
+  const dt    = $("dt").value;
+  const sys   = parseInt($("sys").value,10);
+  const dia   = parseInt($("dia").value,10);
+  const pulse = $("pulse").value === "" ? null : parseInt($("pulse").value,10);
+  const ctx   = $("ctx").value.trim();
+
+  ["sys","dia","pulse"].forEach(id => vitalBox(id).classList.remove("bad"));
+  if(!dt){ say("Falta la fecha y hora.", true); return; }
+  if(!Number.isFinite(sys) || sys < 50 || sys > 260){ vitalBox("sys").classList.add("bad"); say("Sistólica fuera de rango (50–260).", true); return; }
+  if(!Number.isFinite(dia) || dia < 30 || dia > 200){ vitalBox("dia").classList.add("bad"); say("Diastólica fuera de rango (30–200).", true); return; }
+  if(pulse !== null && (!Number.isFinite(pulse) || pulse < 25 || pulse > 220)){ vitalBox("pulse").classList.add("bad"); say("Pulso fuera de rango (25–220).", true); return; }
+  if(dia >= sys){
+    vitalBox("sys").classList.add("bad"); vitalBox("dia").classList.add("bad");
+    say("La diastólica debería ser menor que la sistólica — ¿están invertidas?", true); return;
+  }
+
+  let rec;
+  const wasEditing = !!editingId;
+  if(wasEditing){
+    rec = records.find(r => r.id === editingId);
+    Object.assign(rec, {dt, sys, dia, pulse, ctx});
+    say("Toma actualizada ✓");
+  }else{
+    rec = { id: uid(), dt, sys, dia, pulse, ctx, createdAt: new Date().toISOString() };
+    records.push(rec);
+    say("Toma guardada ✓");
+  }
+  persist();
+  resetForm();
+  renderAll(rec.id);
+  if(!wasEditing && (sys >= 180 || dia >= 110)) $("banner").classList.add("show");
+  $("sys").focus();
+});
+
+$("bannerClose").addEventListener("click", ()=> $("banner").classList.remove("show"));
+
+window.addEventListener("focus", ()=>{
+  if(!editingId && !$("sys").value && !$("dia").value) $("dt").value = nowLocalISO();
+});
+
+function startEdit(id){
+  const r = records.find(x => x.id === id); if(!r) return;
+  editingId = id;
+  $("dt").value    = r.dt;
+  $("sys").value   = r.sys;
+  $("dia").value   = r.dia;
+  $("pulse").value = r.pulse ?? "";
+  $("ctx").value   = r.ctx || "";
+  $("entryCard").classList.add("editing");
+  $("entryKicker").textContent = "Editando · toma del " + fmtShort(r.dt);
+  $("btnSave").textContent     = "Guardar cambios";
+  $("btnCancelEdit").hidden    = false;
+  $("entryCard").scrollIntoView({behavior:"smooth", block:"nearest"});
+  $("sys").focus();
+}
+
+/* ================= agregaciones ================= */
+function between(days0, days1){       // tomas entre hace days1 y hace days0
+  const from = new Date(); from.setDate(from.getDate() - days1);
+  const to   = new Date(); to.setDate(to.getDate() - days0);
+  return records.filter(r => { const d = new Date(r.dt); return d >= from && d <= to; });
+}
+function summarize(set){
+  if(!set.length) return null;
+  const m = k => Math.round(set.reduce((a,r)=>a+r[k],0) / set.length);
+  const pulses = set.filter(r => r.pulse != null);
+  return { sys:m("sys"), dia:m("dia"), n:set.length,
+           pulse: pulses.length ? Math.round(pulses.reduce((a,r)=>a+r.pulse,0)/pulses.length) : null };
+}
+const avgIn = days => summarize(between(0, days));
+
+/* ================= hero + stats ================= */
+function renderHero(){
+  const s = sorted();
+  const h = $("hero");
+  if(!s.length){
+    h.classList.add("emptyhero");
+    h.innerHTML = `<div class="kicker">Bienvenido</div>
+      <div class="big">Registrá tu primera toma</div>
+      <div class="when">Cargala acá abajo — tarda menos de diez segundos.</div>`;
+    return;
+  }
+  h.classList.remove("emptyhero");
+  const r = s[0], c = catOf(r.sys, r.dia);
+  h.innerHTML = `
+    <div class="kicker">Última toma <span style="color:var(--baseline)">·</span> ${fmtAgo(r.dt)}</div>
+    <div class="big">
+      <span class="s">${r.sys}</span><span class="slash">/</span><span class="d">${r.dia}</span>
+      ${r.pulse != null ? `<span class="p"><b>${r.pulse}</b> lpm</span>` : ""}
+    </div>
+    <div class="units">mmHg · ${fmtShort(r.dt)}</div>
+    <div class="meta">${catChip(c)}${r.ctx ? `<span class="ctxline">${esc(r.ctx)}</span>` : ""}</div>`;
+}
+
+function tile(kicker, value, foot){
+  return `<div class="tile"><div class="kicker">${kicker}</div><div class="v">${value}</div><div class="foot">${foot}</div></div>`;
+}
+function renderStats(){
+  const a7 = avgIn(7), a30 = avgIn(30), prev7 = summarize(between(7,14));
+  let trend = "";
+  if(a7 && prev7){
+    const d = a7.sys - prev7.sys;
+    if(d !== 0){
+      trend = `<span class="trend ${d<0?"down":"up"}">${d<0?"▾":"▴"} ${Math.abs(d)}</span> vs semana previa`;
+    } else trend = "= semana previa";
+  } else if(a7) trend = `${a7.n} ${a7.n===1?"toma":"tomas"}`;
+  let html = "";
+  html += a7  ? tile("Promedio 7 días", `${a7.sys}<small>/</small>${a7.dia}`, trend)
+              : tile("Promedio 7 días","—","sin tomas esta semana");
+  html += a30 ? tile("Promedio 30 días", `${a30.sys}<small>/</small>${a30.dia}`, `${a30.n} ${a30.n===1?"toma":"tomas"}`)
+              : tile("Promedio 30 días","—","sin tomas este mes");
+  html += (a30 && a30.pulse != null)
+              ? tile("Pulso · 30 días", `${a30.pulse}<small> lpm</small>`, "promedio")
+              : tile("Pulso","—","sin datos");
+  $("stats").innerHTML = html;
+}
+
+/* ================= gráfico (motor compartido) ================= */
+const NS = "http://www.w3.org/2000/svg";
+
+function drawChart(svg, data, cfg){
+  svg.innerHTML = "";
+  const {W, H} = cfg;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  const P = cfg.padding || {l:44, r:16, t:14, b:26};
+  const pw = W - P.l - P.r, ph = H - P.t - P.b;
+  if(!data.length) return null;
+
+  const times = data.map(r => new Date(r.dt).getTime());
+  let t0 = Math.min(...times), t1 = Math.max(...times);
+  if(t0 === t1){ t0 -= 36e5; t1 += 36e5; }
+  const minDia = Math.min(...data.map(r=>r.dia));
+  const maxSys = Math.max(...data.map(r=>r.sys));
+  const lo = Math.floor(Math.min(minDia - 6, 84) / 10) * 10;
+  const hi = Math.ceil (Math.max(maxSys + 6, 146) / 10) * 10;
+  const step = (hi - lo) > 80 ? 20 : 10;
+
+  const X = t => P.l + ((t - t0) / (t1 - t0)) * pw;
+  const Y = v => P.t + (1 - (v - lo) / (hi - lo)) * ph;
+  const el = (name, attrs) => {
+    const n = document.createElementNS(NS, name);
+    for(const k in attrs) n.setAttribute(k, attrs[k]);
+    return n;
+  };
+
+  for(let v = lo; v <= hi; v += step){
+    svg.appendChild(el("line",{x1:P.l, x2:W-P.r, y1:Y(v), y2:Y(v),
+      stroke: v===lo ? cfg.baseline : cfg.grid, "stroke-width":1}));
+    const t = el("text",{x:P.l-8, y:Y(v)+3.5, "text-anchor":"end",
+      "font-size":cfg.fs || 10.5, fill:cfg.muted, "font-family":"inherit"});
+    t.textContent = v; svg.appendChild(t);
+  }
+
+  [[140, cfg.sys],[90, cfg.dia]].forEach(([v,c])=>{
+    if(v > lo && v < hi){
+      svg.appendChild(el("line",{x1:P.l, x2:W-P.r, y1:Y(v), y2:Y(v),
+        stroke:c, "stroke-width":1, "stroke-dasharray":"2 5", opacity:.6}));
+    }
+  });
+
+  const spanDays = (t1 - t0) / 864e5;
+  const nTicks = Math.min(spanDays < 1 ? 4 : 5, data.length > 1 ? 5 : 1);
+  for(let i = 0; i < nTicks; i++){
+    const t = t0 + (nTicks === 1 ? (t1-t0)/2 : i * (t1 - t0) / (nTicks - 1));
+    const d = new Date(t);
+    const lab = spanDays < 1.2
+      ? `${pad(d.getHours())}:${pad(d.getMinutes())}`
+      : d.toLocaleDateString("es-AR",{day:"numeric", month:"short"});
+    const tx = el("text",{x:X(t), y:H-8, "text-anchor":"middle",
+      "font-size":cfg.fs || 10.5, fill:cfg.muted, "font-family":"inherit"});
+    tx.textContent = lab; svg.appendChild(tx);
+  }
+
+  const pts = data.map(r => ({ r, x: X(new Date(r.dt).getTime()), ys: Y(r.sys), yd: Y(r.dia) }));
+
+  const series = [
+    { key:"yd", color:cfg.dia, val:r=>r.dia },
+    { key:"ys", color:cfg.sys, val:r=>r.sys },
+  ];
+  series.forEach(s => {
+    if(pts.length > 1){
+      const dAttr = pts.map((p,i)=> (i?"L":"M") + p.x.toFixed(1) + " " + p[s.key].toFixed(1)).join(" ");
+      const path = el("path",{d:dAttr, fill:"none", stroke:s.color, "stroke-width":cfg.lw || 2,
+        "stroke-linejoin":"round", "stroke-linecap":"round"});
+      svg.appendChild(path);
+      if(cfg.animate){
+        const L = path.getTotalLength();
+        path.style.strokeDasharray = L; path.style.strokeDashoffset = L;
+        path.getBoundingClientRect();
+        path.style.transition = "stroke-dashoffset .6s ease-out";
+        path.style.strokeDashoffset = 0;
+        setTimeout(()=>{ path.style.strokeDasharray = "none"; }, 700);
+      }
+    }
+    pts.forEach(p => {
+      svg.appendChild(el("circle",{cx:p.x, cy:p[s.key], r:cfg.dotR || 3.4, fill:s.color,
+        stroke:cfg.card, "stroke-width":2}));
+    });
+    const lastP = pts[pts.length-1];
+    const near = W - P.r - lastP.x < 46;
+    const t = el("text",{x: lastP.x + (near ? -9 : 9), y: lastP[s.key] + (s.key==="ys" ? -9 : 15),
+      "text-anchor": near ? "end" : "start", "font-size":(cfg.fs||10.5)+1.5, "font-weight":700,
+      fill:cfg.ink, "font-family":"inherit"});
+    t.textContent = s.val(lastP.r);
+    svg.appendChild(t);
+  });
+
+  return {pts, P, W, H, el};
+}
+
+/* --- gráfico interactivo de la app --- */
+let chartPts = [];
+function inRange(){
+  let set = sorted().reverse();
+  if(rangeDays > 0){
+    const cut = new Date(); cut.setDate(cut.getDate() - rangeDays);
+    set = set.filter(r => new Date(r.dt) >= cut);
+  }
+  return set;
+}
+function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+function renderChart(animate){
+  const svg  = $("chart");
+  const wrap = $("chartWrap");
+  const W = Math.max(wrap.clientWidth, 300);
+  const H = Math.min(330, Math.max(220, Math.round(W * .44)));
+  svg.setAttribute("width", W); svg.setAttribute("height", H);
+  hideTip();
+
+  const data = inRange();
+  chartPts = [];
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const res = drawChart(svg, data, {
+    W, H, animate: animate && !reduced,
+    sys:cssVar("--sys"), dia:cssVar("--dia"),
+    grid:cssVar("--grid"), baseline:cssVar("--baseline"),
+    muted:cssVar("--muted"), ink:cssVar("--ink"), card:"#141a23",
+  });
+  if(!res){
+    const t = document.createElementNS(NS,"text");
+    t.setAttribute("x", W/2); t.setAttribute("y", H/2);
+    t.setAttribute("text-anchor","middle");
+    t.setAttribute("fill", cssVar("--muted"));
+    t.setAttribute("font-size","13");
+    t.textContent = records.length ? "No hay tomas en este rango." : "Tu primera toma va a aparecer acá.";
+    svg.appendChild(t);
+    return;
+  }
+  chartPts = res.pts;
+
+  const cross = res.el("line",{x1:0,x2:0,y1:res.P.t,y2:H-res.P.b,
+    stroke:cssVar("--baseline"), "stroke-width":1, opacity:0});
+  cross.id = "crosshair";
+  svg.insertBefore(cross, svg.firstChild.nextSibling);
+
+  const ov = res.el("rect",{x:res.P.l, y:res.P.t, width:W-res.P.l-res.P.r, height:H-res.P.t-res.P.b, fill:"transparent"});
+  ov.style.cursor = "crosshair";
+  ov.addEventListener("pointermove", onHover);
+  ov.addEventListener("pointerdown", onHover);
+  ov.addEventListener("pointerleave", hideTip);
+  svg.appendChild(ov);
+}
+
+function onHover(e){
+  if(!chartPts.length) return;
+  const svg = $("chart");
+  const rect = svg.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (svg.viewBox.baseVal.width / rect.width);
+  let best = chartPts[0], bd = Infinity;
+  chartPts.forEach(p => { const d = Math.abs(p.x - mx); if(d < bd){ bd = d; best = p; } });
+
+  const ch = $("crosshair");
+  if(ch){ ch.setAttribute("x1", best.x); ch.setAttribute("x2", best.x); ch.setAttribute("opacity", .55); }
+
+  const r = best.r, c = catOf(r.sys, r.dia);
+  const tip = $("tooltip");
+  tip.innerHTML =
+    `<div class="t">${fmtShort(r.dt)}</div>
+     <div class="row"><span class="dot" style="background:var(--sys)"></span>Sistólica <b>${r.sys}</b></div>
+     <div class="row"><span class="dot" style="background:var(--dia)"></span>Diastólica <b>${r.dia}</b></div>
+     ${r.pulse != null ? `<div class="row"><span class="dot" style="background:var(--pulse)"></span>Pulso <b>${r.pulse}</b></div>` : ""}
+     <div style="margin-top:6px">${catChip(c)}</div>
+     ${r.ctx ? `<div class="cx">${esc(r.ctx)}</div>` : ""}`;
+  tip.style.display = "block";
+  const wrap = $("chartWrap");
+  const px = best.x / svg.viewBox.baseVal.width * wrap.clientWidth;
+  const flip = px > wrap.clientWidth - 190;
+  tip.style.left = flip ? "" : Math.min(px + 14, wrap.clientWidth - 170) + "px";
+  tip.style.right = flip ? (wrap.clientWidth - px + 14) + "px" : "";
+  tip.style.top = "10px";
+}
+function hideTip(){
+  $("tooltip").style.display = "none";
+  const ch = $("crosshair"); if(ch) ch.setAttribute("opacity", 0);
+}
+
+$("range").addEventListener("click", e => {
+  const b = e.target.closest("button"); if(!b) return;
+  rangeDays = +b.dataset.d;
+  [...$("range").children].forEach(x => x.classList.toggle("on", x === b));
+  renderChart(true);
+});
+
+let rzT;
+new ResizeObserver(()=>{ clearTimeout(rzT); rzT = setTimeout(()=> renderChart(false), 120); })
+  .observe($("chartWrap"));
+
+/* ================= historial ================= */
+const LOG_LIMIT = 30;
+
+function renderLog(flashId){
+  const s = sorted();
+  $("logCount").textContent = s.length ? `${s.length} ${s.length===1?"toma":"tomas"}` : "";
+  const list = showAll ? s : s.slice(0, LOG_LIMIT);
+  if(!s.length){
+    $("log").innerHTML = `<div class="empty">Todavía no registraste ninguna toma.</div>`;
+    $("btnShowAll").hidden = true;
+    return;
+  }
+  let html = "", lastDay = "";
+  for(const r of list){
+    const dk = dayKey(r.dt);
+    if(dk !== lastDay){
+      lastDay = dk;
+      const dayRecs = s.filter(x => dayKey(x.dt) === dk);
+      const avg = dayRecs.length > 1
+        ? `<span class="avg">prom. ${Math.round(dayRecs.reduce((a,x)=>a+x.sys,0)/dayRecs.length)}/${Math.round(dayRecs.reduce((a,x)=>a+x.dia,0)/dayRecs.length)}</span>`
+        : "";
+      html += `<div class="day">${fmtDayLabel(dk)} ${avg}</div>`;
+    }
+    const c = catOf(r.sys, r.dia);
+    html += `<div class="row${r.id===flashId ? " flash" : ""}" data-id="${r.id}">
+      <span class="hh">${fmtTime(r.dt)}</span>
+      <span class="val">${r.sys}<span class="sl">/</span>${r.dia}<small>${r.pulse != null ? r.pulse + " lpm" : ""}</small></span>
+      <span class="catc">${catChip(c)}</span>
+      <span class="ctx" title="${esc(r.ctx)}">${esc(r.ctx) || "<span style='color:var(--grid)'>—</span>"}</span>
+      <span class="ops">
+        <button class="iconb" data-op="edit" title="Editar" aria-label="Editar toma">✎</button>
+        <button class="iconb del" data-op="del" title="Eliminar" aria-label="Eliminar toma">✕</button>
+      </span>
+    </div>`;
+  }
+  $("log").innerHTML = html;
+  const hidden = s.length - list.length;
+  $("btnShowAll").hidden = s.length <= LOG_LIMIT;
+  $("btnShowAll").textContent = showAll ? "Mostrar solo las últimas 30" : `Mostrar todas (${hidden} más)`;
+
+  if(flashId){
+    const row = $("log").querySelector(`[data-id="${flashId}"]`);
+    if(row) row.scrollIntoView({behavior:"smooth", block:"nearest"});
+  }
+}
+
+$("btnShowAll").addEventListener("click", ()=>{ showAll = !showAll; renderLog(); });
+
+$("log").addEventListener("click", e => {
+  const b = e.target.closest("button"); if(!b) return;
+  const row = e.target.closest(".row"); if(!row) return;
+  const id = row.dataset.id;
+  if(b.dataset.op === "edit") startEdit(id);
+  if(b.dataset.op === "del")  askDelete(row, id);
+  if(b.dataset.op === "no")   renderLog();
+  if(b.dataset.op === "yes"){
+    records = records.filter(r => r.id !== id);
+    if(editingId === id) resetForm();
+    persist(); renderAll(); say("Toma eliminada.");
+  }
+});
+
+function askDelete(row, id){
+  const r = records.find(x => x.id === id); if(!r) return;
+  row.innerHTML = `<span class="confirm">
+      ¿Eliminar la toma <b style="color:var(--ink)">${r.sys}/${r.dia}</b> del ${fmtShort(r.dt)}?
+      <button class="yes" data-op="yes">Sí, eliminar</button>
+      <button class="pill" data-op="no">Cancelar</button>
+    </span>`;
+}
+
+/* ================= informe PDF ================= */
+function reportSummaryCell(label, sum){
+  if(!sum) return `<div class="rcell"><div class="k">${label}</div><div class="n">—</div><div class="f">sin tomas</div></div>`;
+  return `<div class="rcell"><div class="k">${label}</div>
+    <div class="n">${sum.sys}<small>/</small>${sum.dia}<small> mmHg</small></div>
+    <div class="f">${sum.n} ${sum.n===1?"toma":"tomas"}${sum.pulse!=null ? ` · pulso ${sum.pulse} lpm` : ""}</div></div>`;
+}
+
+function buildReport(){
+  const s = sorted();
+  if(!s.length) return false;
+  const asc = [...s].reverse();
+  const first = asc[0], last = s[0];
+  const fmtLong = d => new Date(d).toLocaleDateString("es-AR",{day:"numeric",month:"long",year:"numeric"});
+
+  const all = summarize(records);
+  const morning = summarize(records.filter(r => +r.dt.slice(11,13) < 12));
+  const evening = summarize(records.filter(r => +r.dt.slice(11,13) >= 12));
+  const maxSysR = records.reduce((a,r)=> r.sys > a.sys ? r : a);
+  const minSysR = records.reduce((a,r)=> r.sys < a.sys ? r : a);
+
+  const dist = CATS.map(c => ({...c, n: records.filter(r => catOf(r.sys,r.dia).k === c.k).length}))
+                   .filter(c => c.n > 0);
+
+  const chartCut = new Date(); chartCut.setDate(chartCut.getDate() - 90);
+  const chartData = asc.filter(r => new Date(r.dt) >= chartCut);
+  const chartLabel = chartData.length === asc.length ? "período completo" : "últimos 90 días";
+
+  const rows = asc.map(r => {
+    const c = catOf(r.sys, r.dia);
+    return `<tr>
+      <td>${dayKey(r.dt).split("-").reverse().join("/")}</td>
+      <td>${fmtTime(r.dt)}</td>
+      <td class="num">${r.sys}</td>
+      <td class="num">${r.dia}</td>
+      <td class="num">${r.pulse ?? "—"}</td>
+      <td class="rcat"><i style="background:${c.pc}"></i>${c.label}</td>
+      <td>${esc(r.ctx)}</td>
+    </tr>`;
+  }).join("");
+
+  $("report").innerHTML = `
+    <div class="rhead">
+      <div>
+        <h1>Informe de presión arterial</h1>
+        <div class="rsub">Registro domiciliario autoreportado · ${records.length} tomas</div>
+      </div>
+      <div class="rmeta">
+        ${meta.name ? `<div>Paciente: <b>${esc(meta.name)}</b></div>` : `<div>Paciente: ______________________</div>`}
+        <div>Período: <b>${fmtLong(first.dt)} — ${fmtLong(last.dt)}</b></div>
+        <div>Emitido: ${fmtLong(new Date())}</div>
+      </div>
+    </div>
+
+    <h2>Resumen</h2>
+    <div class="rsummary">
+      ${reportSummaryCell("Últimos 7 días",  avgIn(7))}
+      ${reportSummaryCell("Últimos 30 días", avgIn(30))}
+      ${reportSummaryCell("Últimos 90 días", avgIn(90))}
+      ${reportSummaryCell("Período completo", all)}
+    </div>
+    <div class="rline">
+      ${morning ? `<span>Promedio matutino (antes de 12 h): <b>${morning.sys}/${morning.dia}</b> (${morning.n})</span>` : ""}
+      ${evening ? `<span>Promedio vespertino: <b>${evening.sys}/${evening.dia}</b> (${evening.n})</span>` : ""}
+      <span>Máx. sistólica: <b>${maxSysR.sys}/${maxSysR.dia}</b> (${fmtShort(maxSysR.dt)})</span>
+      <span>Mín. sistólica: <b>${minSysR.sys}/${minSysR.dia}</b> (${fmtShort(minSysR.dt)})</span>
+    </div>
+    <div class="dist">
+      ${dist.map(c => `<span><i style="background:${c.pc}"></i>${c.label}: <b>${c.n}</b> (${Math.round(c.n/records.length*100)}%)</span>`).join("")}
+    </div>
+
+    <h2>Evolución (${chartLabel})</h2>
+    <div class="chartbox"><svg id="rchart" width="100%"></svg></div>
+    <div class="rline" style="margin-top:2px">
+      <span><i style="display:inline-block;width:16px;height:0;border-top:2px solid #c2402f;vertical-align:middle;margin-right:4px"></i>Sistólica</span>
+      <span><i style="display:inline-block;width:16px;height:0;border-top:2px solid #0c7a54;vertical-align:middle;margin-right:4px"></i>Diastólica</span>
+      <span style="color:#7a828c">Guías punteadas: 140 / 90 mmHg</span>
+    </div>
+
+    <h2>Historial completo</h2>
+    <table>
+      <thead><tr>
+        <th>Fecha</th><th>Hora</th><th>Sistólica</th><th>Diastólica</th><th>Pulso</th><th>Clasificación</th><th>Contexto</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    <div class="rfoot">
+      Clasificación de referencia ESC/ESH: Óptima &lt;120/80 · Normal 120–129/80–84 · Normal-alta 130–139/85–89 ·
+      HTA G1 140–159/90–99 · HTA G2 160–179/100–109 · HTA G3 ≥180/≥110 (mmHg).
+      Mediciones domiciliarias autoreportadas; documento orientativo para acompañar la consulta médica.
+      Generado con «Registro de presión».
+    </div>`;
+
+  drawChart($("rchart"), chartData, {
+    W: 1000, H: 330, animate:false, lw:2.5, dotR:3, fs:13,
+    sys:"#c2402f", dia:"#0c7a54",
+    grid:"#e5e5df", baseline:"#9aa0a8", muted:"#7a828c", ink:"#16181c", card:"#ffffff",
+  });
+  return true;
+}
+
+$("btnPdf").addEventListener("click", ()=>{
+  if(!records.length){ say("No hay tomas para el informe.", true); return; }
+  buildReport();
+  window.print();
+});
+window.addEventListener("beforeprint", ()=>{ if(records.length && !$("report").innerHTML) buildReport(); });
+window.addEventListener("afterprint", ()=>{ $("report").innerHTML = ""; });
+
+/* ================= backup / import ================= */
+function download(name, content, type){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([content], {type}));
+  a.download = name;
+  a.click();
+  setTimeout(()=> URL.revokeObjectURL(a.href), 4000);
+}
+const stamp = () => nowLocalISO().slice(0,10);
+
+$("btnJson").addEventListener("click", ()=>{
+  if(!records.length){ say("No hay tomas para respaldar.", true); return; }
+  download(`presion_backup_${stamp()}.json`,
+    JSON.stringify({app:"registro-presion", version:1, exportedAt:new Date().toISOString(), records}, null, 2),
+    "application/json");
+  meta.lastExportAt = new Date().toISOString();
+  persistMeta();
+  renderNudge();
+  say("Backup descargado ✓");
+});
+
+$("btnImport").addEventListener("click", ()=> $("fileImport").click());
+$("fileImport").addEventListener("change", e => {
+  const file = e.target.files[0]; if(!file) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try{
+      const data = JSON.parse(rd.result);
+      const incoming = Array.isArray(data) ? data : data.records;
+      if(!Array.isArray(incoming)) throw new Error("formato");
+      const ids  = new Set(records.map(r => r.id));
+      const sigs = new Set(records.map(r => `${r.dt}|${r.sys}|${r.dia}|${r.pulse ?? ""}`));
+      let added = 0, skipped = 0, invalid = 0;
+      for(const raw of incoming){
+        const sys = parseInt(raw?.sys,10), dia = parseInt(raw?.dia,10);
+        const pulse = (raw?.pulse === null || raw?.pulse === undefined || raw?.pulse === "") ? null : parseInt(raw.pulse,10);
+        const dt = String(raw?.dt || "");
+        if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(dt) || !Number.isFinite(sys) || !Number.isFinite(dia)){ invalid++; continue; }
+        const sig = `${dt.slice(0,16)}|${sys}|${dia}|${pulse ?? ""}`;
+        if((raw.id && ids.has(raw.id)) || sigs.has(sig)){ skipped++; continue; }
+        const rec = { id: raw.id || uid(), dt: dt.slice(0,16), sys, dia,
+                      pulse: Number.isFinite(pulse) ? pulse : null,
+                      ctx: String(raw.ctx || raw.context || ""), createdAt: raw.createdAt || new Date().toISOString() };
+        records.push(rec); ids.add(rec.id); sigs.add(sig); added++;
+      }
+      persist(); renderAll();
+      say(`Importadas ${added} · duplicadas ${skipped}${invalid ? " · inválidas " + invalid : ""}`);
+    }catch(err){
+      say("No pude leer ese archivo — ¿es un backup JSON de esta app?", true);
+    }
+    e.target.value = "";
+  };
+  rd.readAsText(file);
+});
+
+function renderNudge(){
+  const since = meta.lastExportAt ? new Date(meta.lastExportAt) : null;
+  const pending = records.filter(r => !since || new Date(r.createdAt || r.dt) > since).length;
+  const show = pending >= 5;
+  $("nudge").hidden = !show;
+  if(show) $("nudge").textContent = `⚠ ${pending} sin backup`;
+}
+$("nudge").addEventListener("click", ()=> $("btnJson").click());
+
+/* ================= footer / init ================= */
+$("guide").innerHTML = [...CATS].reverse()
+  .map(c => `<span class="cat" style="--c:${c.c}"><b>${c.label}</b> ${c.range}</span>`).join("");
+
+$("patientName").value = meta.name || "";
+$("patientName").addEventListener("change", ()=>{
+  meta.name = $("patientName").value.trim();
+  persistMeta();
+});
+
+$("today").textContent = new Date().toLocaleDateString("es-AR",
+  {weekday:"long", day:"numeric", month:"long"});
+
+function renderAll(flashId){
+  renderHero();
+  renderStats();
+  renderChart(true);
+  renderLog(flashId);
+  renderNudge();
+}
+
+$("dt").value = nowLocalISO();
+renderAll();
+</script>
+</body>
+</html>
